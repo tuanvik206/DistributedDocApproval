@@ -28,6 +28,7 @@
 
 - Commit `2353a6bf869403fb538c888d378b9fa7908c3640` (`feat: complete distributed document approval MVP`) được push lên `refs/heads/main`.
 - Commit `fe287f9` ghi nhật ký mốc và `6cd22ad` ghi bằng chứng clone sạch cũng đã push.
+- Commit `d8a4739b74db475e1a79e2afee99232adc8d6068` (`fix: correct dashboard layout and add runtime evidence`) được push; `refs/heads/main` đã được xác minh trỏ tới SHA này.
 - Remote `main` được xác minh khớp local sau push và clone sạch.
 - Tác giả: `Tuan <tuanvik206@gmail.com>`. SHA trên GitHub khớp với `main` local.
 - Không tạo commit hoặc ngày lịch sử giả cho các tuần trước; mốc tiếp theo cần ghi theo ngày thực hiện.
