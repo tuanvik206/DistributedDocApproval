@@ -1,0 +1,54 @@
+@page "/documents/{Id:guid}/workflow"
+@attribute [Authorize(Roles = "Creator,Approver")]
+@using Client.Web.Contracts
+@inject ApiClient Api
+
+<PageTitle>Lịch sử phê duyệt · DocFlow</PageTitle>
+
+<div class="page-heading"><div><p class="eyebrow">LỊCH SỬ</p><h1>Tiến độ phê duyệt</h1><p class="muted">Các bước và quyết định được lưu trong Approval service.</p></div><a class="button button-secondary" href="/documents/@Id">← Tài liệu</a></div>
+
+@if (loading)
+{
+    <div class="loading-card">Đang tải tiến độ…</div>
+}
+else if (workflow is null)
+{
+    <div class="alert alert-success">Quy trình đang đồng bộ. Tải lại sau ít phút để xem lịch sử.</div>
+}
+else
+{
+    <section class="section-card">
+        <div class="section-heading"><div><p class="eyebrow">@workflow.Title</p><h2>Các bước duyệt</h2></div><span class="status-pill status-@workflow.Status.ToLowerInvariant()">@workflow.Status</span></div>
+        <ol class="timeline timeline-large">
+            @foreach (var step in workflow.Steps.OrderBy(item => item.StepOrder))
+            {
+                <li class="@(step.Status == "Active" ? "active" : step.Status is "Approved" or "Rejected" ? "done" : string.Empty)">
+                    <span class="timeline-dot">@(step.Status == "Approved" ? "✓" : step.StepOrder)</span>
+                    <span class="timeline-copy"><strong>Bước @step.StepOrder · Người duyệt @ShortId(step.ApproverId)</strong><small>@step.Status@(step.DecidedAtUtc is null ? string.Empty : $" · {step.DecidedAtUtc.Value.ToLocalTime():dd/MM/yyyy HH:mm}")</small>
+                    @if (step.Decision is not null) { <small>@step.Decision.Decision@(string.IsNullOrWhiteSpace(step.Decision.Comment) ? string.Empty : $" — {step.Decision.Comment}")</small> }
+                    </span>
+                </li>
+            }
+        </ol>
+    </section>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    private WorkflowResponse? workflow;
+    private bool loading = true;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        loading = true;
+        try
+        {
+            using var response = await Api.SendAsync("approval", HttpMethod.Get, $"api/approvals/documents/{Id}");
+            if (response.IsSuccessStatusCode) workflow = await response.Content.ReadFromJsonAsync<WorkflowResponse>();
+        }
+        catch { workflow = null; }
+        finally { loading = false; }
+    }
+
+    private static string ShortId(Guid id) => id.ToString("N")[..8];
+}

@@ -1,0 +1,21 @@
+Compose containers:
+approval-api running healthy
+client-web running healthy
+document-api running healthy
+identity-api running healthy
+minio running healthy
+notification-api running healthy
+postgres running healthy
+rabbitmq running healthy
+API readiness:
+http://localhost:5111/health/ready => Ready
+http://localhost:5112/health/ready => Ready
+http://localhost:5113/health/ready => Ready
+http://localhost:5114/health/ready => Ready
+RabbitMQ queues:
+approval.document-submitted messages=0 consumers=1 state=running
+approval.document-submitted.dead messages=0 consumers=0 state=running
+document.approval-results messages=0 consumers=1 state=running
+document.approval-results.dead messages=0 consumers=0 state=running
+notification.events messages=0 consumers=1 state=running
+notification.events.dead messages=0 consumers=0 state=running

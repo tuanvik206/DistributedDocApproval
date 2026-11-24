@@ -1,0 +1,18 @@
+<Solution>
+  <Folder Name="/src/BuildingBlocks/" />
+  <Folder Name="/src/" />
+  <Folder Name="/src/Clients/">
+    <Project Path="src/Clients/Client.Web/Client.Web.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/">
+    <Project Path="src/Services/Approval.Api/Approval.Api.csproj" />
+    <Project Path="src/Services/Document.Api/Document.Api.csproj" />
+    <Project Path="src/Services/Identity.Api/Identity.Api.csproj" />
+    <Project Path="src/Services/Notification.Api/Notification.Api.csproj" />
+  </Folder>
+  <Project Path="src/BuildingBlocks/IntegrationContracts/IntegrationContracts.csproj" />
+  <Folder Name="/tests/">
+    <Project Path="tests/UnitTests/UnitTests.csproj" />
+  </Folder>
+  <Project Path="tests/IntegrationTests/IntegrationTests.csproj" />
+</Solution>

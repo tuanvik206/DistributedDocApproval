@@ -1,0 +1,220 @@
+@page "/documents/{Id:guid}"
+@attribute [Authorize(Roles = "Creator,Approver")]
+@using Client.Web.Contracts
+@using System.Security.Claims
+@inject ApiClient Api
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager Navigation
+@inject IJSRuntime JavaScript
+
+<PageTitle>@(document?.Title ?? "Tài liệu") · DocFlow</PageTitle>
+
+<div class="page-heading">
+    <div><p class="eyebrow">CHI TIẾT HỒ SƠ</p><h1>@(document?.Title ?? "Tài liệu")</h1><p class="muted">Thông tin, tệp riêng tư và tiến độ phê duyệt.</p></div>
+    <a class="button button-secondary" href="/documents">← Danh sách</a>
+</div>
+
+@if (loading)
+{
+    <div class="loading-card">Đang tải tài liệu…</div>
+}
+else if (document is null)
+{
+    <div class="alert alert-error">Không tìm thấy tài liệu hoặc bạn không có quyền xem.</div>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(message)) { <div class="alert @(isError ? "alert-error" : "alert-success")">@message</div> }
+    <div class="detail-grid">
+        <div>
+            <section class="detail-card">
+                <span class="status-pill status-@document.Status.ToLowerInvariant()">@document.Status</span>
+                <h2 class="document-title" style="margin-top:14px">@document.Title</h2>
+                <p class="muted">@(string.IsNullOrWhiteSpace(document.Description) ? "Chưa có mô tả." : document.Description)</p>
+                <div class="meta-list">
+                    <div class="meta-item"><span>Tệp</span><strong>@document.OriginalFileName</strong></div>
+                    <div class="meta-item"><span>Kích thước</span><strong>@FormatSize(document.SizeBytes)</strong></div>
+                    <div class="meta-item"><span>Tạo lúc</span><strong>@document.CreatedAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</strong></div>
+                    <div class="meta-item"><span>SHA-256</span><strong title="@document.Sha256">@document.Sha256[..Math.Min(12, document.Sha256.Length)]…</strong></div>
+                </div>
+                <div class="form-actions"><a class="button button-secondary" href="/files/@document.Id">↓ Tải file an toàn</a><a class="button button-secondary" href="/documents/@document.Id/workflow">Mở timeline</a></div>
+            </section>
+
+            @if (workflow is not null)
+            {
+                <section class="detail-card">
+                    <div class="section-heading"><div><p class="eyebrow">QUY TRÌNH</p><h2>Tiến độ phê duyệt</h2></div><span class="status-pill status-@workflow.Status.ToLowerInvariant()">@workflow.Status</span></div>
+                    <ol class="timeline">
+                        @foreach (var step in workflow.Steps.OrderBy(item => item.StepOrder))
+                        {
+                            <li class="@(step.Status == "Active" ? "active" : step.Status is "Approved" or "Rejected" ? "done" : string.Empty)">
+                                <span class="timeline-dot">@(step.Status == "Approved" ? "✓" : step.StepOrder)</span>
+                                <span class="timeline-copy"><strong>Bước @step.StepOrder · @ShortId(step.ApproverId)</strong><small>@step.Status@(step.DecidedAtUtc is null ? string.Empty : $" · {step.DecidedAtUtc.Value.ToLocalTime():dd/MM/yyyy HH:mm}")</small>
+                                @if (step.Decision is not null && !string.IsNullOrWhiteSpace(step.Decision.Comment)) { <small>“@step.Decision.Comment”</small> }
+                                </span>
+                            </li>
+                        }
+                    </ol>
+                </section>
+            }
+            else if (document.Status != "Draft")
+            {
+                <div class="alert alert-success">Tài liệu đã gửi. Quy trình đang được đồng bộ giữa các dịch vụ.</div>
+            }
+        </div>
+
+        <div>
+            @if (isCreator && document.Status == "Draft")
+            {
+                <section class="detail-card">
+                    <p class="eyebrow">CHỈNH SỬA</p><h2>Bản nháp</h2>
+                    <div class="field"><label>Tiêu đề</label><input maxlength="200" @bind="editTitle" /></div>
+                    <div class="field"><label>Mô tả</label><textarea maxlength="2000" @bind="editDescription"></textarea></div>
+                    <div class="form-actions"><button class="button button-secondary" disabled="@busy" @onclick="SaveChangesAsync">Lưu thay đổi</button><button class="button button-danger" disabled="@busy" @onclick="DeleteAsync">Xóa bản nháp</button></div>
+                </section>
+                <section class="detail-card">
+                    <p class="eyebrow">GỬI PHÊ DUYỆT</p><h2>Chọn người duyệt theo thứ tự</h2>
+                    @if (approvers.Count == 0)
+                    {
+                        <p class="muted">Không có người duyệt đang hoạt động.</p>
+                    }
+                    else
+                    {
+                        @foreach (var approver in approvers)
+                        {
+                            <label class="form-check-row"><input type="checkbox" checked="@selectedApprovers.Contains(approver.Id)" @onchange="args => ToggleApprover(approver.Id, args)" /><span><strong>@approver.FullName</strong><small>@approver.Username · @approver.Email</small></span></label>
+                        }
+                        @if (selectedApprovers.Count > 0)
+                        {
+                            <div class="selected-order"><strong>Thứ tự:</strong> @string.Join(" → ", selectedApprovers.Select(id => approvers.First(user => user.Id == id).FullName))</div>
+                        }
+                        <button class="button button-primary button-wide" disabled="@(busy || selectedApprovers.Count is < 1 or > 3)" @onclick="SubmitAsync">@(busy ? "Đang gửi…" : "Gửi phê duyệt")</button>
+                    }
+                </section>
+            }
+            else if (document.Status == "Pending")
+            {
+                <section class="detail-card"><p class="eyebrow">TRẠNG THÁI</p><h2>Đang xử lý</h2><p class="muted">Hồ sơ đã khóa chỉnh sửa và đang chờ quyết định theo thứ tự.</p></section>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private DocumentResponse? document;
+    private WorkflowResponse? workflow;
+    private List<UserResponse> approvers = [];
+    private readonly List<Guid> selectedApprovers = [];
+    private string editTitle = string.Empty;
+    private string editDescription = string.Empty;
+    private string? message;
+    private bool isError;
+    private bool loading = true;
+    private bool busy;
+    private bool isCreator;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        loading = true;
+        var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        isCreator = state.User.IsInRole("Creator");
+
+        try
+        {
+            document = await Api.GetAsync<DocumentResponse>("document", $"api/documents/{Id}");
+            if (document is not null)
+            {
+                editTitle = document.Title;
+                editDescription = document.Description;
+                var stateUserId = state.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                isCreator = isCreator && stateUserId == document.CreatorId.ToString();
+                if (document.Status == "Draft" && isCreator)
+                {
+                    approvers = await Api.GetAsync<List<UserResponse>>("identity", "api/users/approvers") ?? [];
+                }
+                if (document.Status != "Draft")
+                {
+                    using var response = await Api.SendAsync("approval", HttpMethod.Get, $"api/approvals/documents/{Id}");
+                    if (response.IsSuccessStatusCode)
+                    {
+                        workflow = await response.Content.ReadFromJsonAsync<WorkflowResponse>();
+                    }
+                }
+            }
+        }
+        catch
+        {
+            if (document?.Status is null) message = "Không tải được tài liệu hoặc quy trình.";
+        }
+        finally { loading = false; }
+    }
+
+    private void ToggleApprover(Guid id, ChangeEventArgs args)
+    {
+        var isSelected = args.Value is bool selected && selected;
+        if (isSelected && selectedApprovers.Count < 3 && !selectedApprovers.Contains(id)) selectedApprovers.Add(id);
+        if (!isSelected) selectedApprovers.Remove(id);
+    }
+
+    private async Task SaveChangesAsync()
+    {
+        if (document is null) return;
+        busy = true;
+        try
+        {
+            using var response = await Api.SendJsonAsync("document", HttpMethod.Put, $"api/documents/{Id}", new UpdateDocumentRequest(editTitle, editDescription, document.Version));
+            if (!response.IsSuccessStatusCode) throw new InvalidOperationException("Không lưu được thay đổi. Có thể tài liệu đã được cập nhật ở nơi khác.");
+            document = await response.Content.ReadFromJsonAsync<DocumentResponse>();
+            message = "Đã lưu thay đổi.";
+            isError = false;
+        }
+        catch (Exception exception) { message = exception.Message; isError = true; }
+        finally { busy = false; }
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (document is null || !await JavaScript.InvokeAsync<bool>("confirm", "Xóa bản nháp này?")) return;
+        busy = true;
+        try
+        {
+            using var response = await Api.SendAsync("document", HttpMethod.Delete, $"api/documents/{Id}");
+            if (!response.IsSuccessStatusCode) throw new InvalidOperationException("Không xóa được bản nháp.");
+            Navigation.NavigateTo("/documents");
+        }
+        catch (Exception exception) { message = exception.Message; isError = true; }
+        finally { busy = false; }
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (document is null || selectedApprovers.Count is < 1 or > 3) return;
+        if (!await JavaScript.InvokeAsync<bool>("confirm", $"Gửi tài liệu cho {selectedApprovers.Count} người duyệt theo thứ tự đã chọn?")) return;
+        busy = true;
+        try
+        {
+            using var response = await Api.SendJsonAsync("document", HttpMethod.Post, $"api/documents/{Id}/submit", new SubmitDocumentRequest(selectedApprovers.ToArray(), document.Version));
+            if (response.StatusCode != System.Net.HttpStatusCode.Accepted) throw new InvalidOperationException(response.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable
+                ? "Không kiểm tra được người duyệt. Tài liệu chưa thay đổi."
+                : "Không gửi được tài liệu. Kiểm tra trạng thái và danh sách người duyệt.");
+            message = "Đã gửi yêu cầu. Quy trình đang được đồng bộ.";
+            isError = false;
+            selectedApprovers.Clear();
+            await LoadSubmittedDocumentAsync();
+        }
+        catch (Exception exception) { message = exception.Message; isError = true; }
+        finally { busy = false; }
+    }
+
+    private async Task LoadSubmittedDocumentAsync()
+    {
+        document = await Api.GetAsync<DocumentResponse>("document", $"api/documents/{Id}");
+        using var response = await Api.SendAsync("approval", HttpMethod.Get, $"api/approvals/documents/{Id}");
+        if (response.IsSuccessStatusCode) workflow = await response.Content.ReadFromJsonAsync<WorkflowResponse>();
+    }
+
+    private static string ShortId(Guid id) => id.ToString("N")[..8];
+    private static string FormatSize(long bytes) => bytes < 1024 * 1024 ? $"{bytes / 1024d:0.#} KB" : $"{bytes / (1024d * 1024d):0.#} MB";
+}

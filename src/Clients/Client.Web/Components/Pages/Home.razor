@@ -1,0 +1,119 @@
+@page "/"
+@attribute [Authorize]
+@using Client.Web.Contracts
+@inject ApiClient Api
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Tổng quan · DocFlow</PageTitle>
+
+<div class="page-heading">
+    <div>
+        <p class="eyebrow">TỔNG QUAN</p>
+        <h1>Chào @displayName</h1>
+        <p class="muted">Theo dõi trạng thái hồ sơ và các việc cần xử lý.</p>
+    </div>
+    <span class="role-badge">@role</span>
+</div>
+
+@if (!string.IsNullOrEmpty(error))
+{
+    <div class="alert alert-error" role="alert">@error</div>
+}
+
+@if (loading)
+{
+    <div class="loading-card">Đang tải dữ liệu…</div>
+}
+else if (role == "Admin")
+{
+    <section class="welcome-panel">
+        <p class="eyebrow">QUẢN TRỊ</p>
+        <h2>Quản lý tài khoản hệ thống</h2>
+        <p class="muted">Tạo người dùng, thay đổi vai trò và kiểm soát trạng thái tài khoản.</p>
+        <a class="button button-primary" href="/admin/users">Mở quản lý người dùng</a>
+    </section>
+}
+else
+{
+    <section class="metric-grid">
+        <article class="metric-card"><span class="metric-label">Tài liệu của tôi</span><strong>@documents.Count</strong><small>tổng hồ sơ</small></article>
+        <article class="metric-card"><span class="metric-label">Đang chờ</span><strong>@documents.Count(item => item.Status == "Pending")</strong><small>quy trình đang chạy</small></article>
+        <article class="metric-card"><span class="metric-label">Đã hoàn tất</span><strong>@documents.Count(item => item.Status is "Approved" or "Rejected")</strong><small>đã có kết quả</small></article>
+        @if (role == "Approver")
+        {
+            <article class="metric-card metric-highlight"><span class="metric-label">Việc cần duyệt</span><strong>@tasks.Count</strong><small>đến lượt của bạn</small></article>
+        }
+    </section>
+
+    <section class="section-card">
+        <div class="section-heading"><div><p class="eyebrow">GẦN ĐÂY</p><h2>Hồ sơ mới nhất</h2></div><a href="/documents" class="text-link">Xem tất cả</a></div>
+        @if (documents.Count == 0)
+        {
+            <div class="empty-state"><span class="empty-icon">＋</span><h3>Chưa có tài liệu</h3><p>Tạo bản nháp đầu tiên để bắt đầu quy trình.</p><a class="button button-primary" href="/documents/new">Tạo tài liệu</a></div>
+        }
+        else
+        {
+            <div class="table-wrap"><table><thead><tr><th>Tiêu đề</th><th>File</th><th>Trạng thái</th><th>Ngày tạo</th><th></th></tr></thead><tbody>
+                @foreach (var document in documents.Take(5))
+                {
+                    <tr><td><strong>@document.Title</strong><small class="table-subtitle">@document.Description</small></td><td>@document.OriginalFileName</td><td><span class="status-pill status-@document.Status.ToLowerInvariant()">@document.Status</span></td><td>@document.CreatedAtUtc.ToLocalTime().ToString("dd/MM/yyyy")</td><td><a href="/documents/@document.Id" class="text-link">Mở</a></td></tr>
+                }
+            </tbody></table></div>
+        }
+    </section>
+
+    @if (role == "Approver")
+    {
+        <section class="section-card">
+            <div class="section-heading"><div><p class="eyebrow">INBOX</p><h2>Nhiệm vụ đang đến lượt</h2></div><a href="/tasks" class="text-link">Mở inbox</a></div>
+            @if (tasks.Count == 0)
+            {
+                <p class="empty-inline">Bạn đã xử lý hết nhiệm vụ hiện tại.</p>
+            }
+            else
+            {
+                <div class="task-list">
+                    @foreach (var task in tasks.Take(3))
+                    {
+                        <a class="task-row" href="/documents/@task.DocumentId"><span class="task-icon">↗</span><span><strong>@task.Title</strong><small>Bước @task.StepOrder/@task.TotalSteps · tạo @task.CreatedAtUtc.ToLocalTime().ToString("dd/MM/yyyy")</small></span><span class="task-arrow">→</span></a>
+                    }
+                </div>
+            }
+        </section>
+    }
+}
+
+@code {
+    private string displayName = "bạn";
+    private string role = string.Empty;
+    private string? error;
+    private bool loading = true;
+    private List<DocumentResponse> documents = [];
+    private List<TaskResponse> tasks = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var user = (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;
+            displayName = user.Identity?.Name ?? "bạn";
+            role = user.FindFirst("user_role")?.Value ?? string.Empty;
+            if (role is "Creator" or "Approver")
+            {
+                documents = await Api.GetAsync<List<DocumentResponse>>("document", "api/documents") ?? [];
+            }
+            if (role == "Approver")
+            {
+                tasks = await Api.GetAsync<List<TaskResponse>>("approval", "api/approvals/my-tasks") ?? [];
+            }
+        }
+        catch
+        {
+            error = "Không tải được dữ liệu. Hãy thử tải lại sau ít phút.";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+}

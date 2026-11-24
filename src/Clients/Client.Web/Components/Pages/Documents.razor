@@ -1,0 +1,70 @@
+@page "/documents"
+@attribute [Authorize(Roles = "Creator,Approver")]
+@using Client.Web.Contracts
+@inject ApiClient Api
+
+<PageTitle>Tài liệu · DocFlow</PageTitle>
+
+<div class="page-heading">
+    <div><p class="eyebrow">HỒ SƠ</p><h1>Tài liệu</h1><p class="muted">Các tài liệu bạn tạo hoặc được chỉ định xem.</p></div>
+    <AuthorizeView Roles="Creator"><a class="button button-primary" href="/documents/new">＋ Tạo tài liệu</a></AuthorizeView>
+</div>
+
+<section class="section-card">
+    @if (!string.IsNullOrEmpty(error)) { <div class="alert alert-error">@error</div> }
+    <div class="section-toolbar">
+        <input class="search-input" placeholder="Tìm theo tiêu đề…" @bind="query" @bind:event="oninput" />
+        <select class="search-input" aria-label="Lọc trạng thái" @bind="statusFilter">
+            <option value="">Tất cả trạng thái</option><option>Draft</option><option>Pending</option><option>Approved</option><option>Rejected</option>
+        </select>
+    </div>
+    @if (loading)
+    {
+        <div class="loading-card">Đang tải danh sách…</div>
+    }
+    else if (!FilteredDocuments.Any())
+    {
+        <div class="empty-state"><span class="empty-icon">▤</span><h3>Không tìm thấy tài liệu</h3><p>Thử đổi từ khóa hoặc bộ lọc.</p></div>
+    }
+    else
+    {
+        <div class="table-wrap"><table><thead><tr><th>Tiêu đề</th><th>File</th><th>Trạng thái</th><th>Tạo lúc</th><th>Hoàn tất</th><th></th></tr></thead><tbody>
+            @foreach (var item in FilteredDocuments)
+            {
+                <tr>
+                    <td><strong>@item.Title</strong><small class="table-subtitle">@item.Description</small></td>
+                    <td>@item.OriginalFileName</td>
+                    <td><span class="status-pill status-@item.Status.ToLowerInvariant()">@item.Status</span></td>
+                    <td>@item.CreatedAtUtc.ToLocalTime().ToString("dd/MM/yyyy")</td>
+                    <td>@(item.CompletedAtUtc?.ToLocalTime().ToString("dd/MM/yyyy") ?? "—")</td>
+                    <td><a class="text-link" href="/documents/@item.Id">Chi tiết →</a></td>
+                </tr>
+            }
+        </tbody></table></div>
+    }
+</section>
+
+@code {
+    private bool loading = true;
+    private string? error;
+    private string query = string.Empty;
+    private string statusFilter = string.Empty;
+    private List<DocumentResponse> documents = [];
+
+    private IEnumerable<DocumentResponse> FilteredDocuments => documents
+        .Where(document => string.IsNullOrWhiteSpace(query) || document.Title.Contains(query, StringComparison.OrdinalIgnoreCase))
+        .Where(document => string.IsNullOrWhiteSpace(statusFilter) || document.Status == statusFilter);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            documents = await Api.GetAsync<List<DocumentResponse>>("document", "api/documents") ?? [];
+        }
+        catch
+        {
+            error = "Không tải được danh sách tài liệu.";
+        }
+        finally { loading = false; }
+    }
+}

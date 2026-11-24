@@ -1,0 +1,197 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Copy .env.example to .env first}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: identitydb
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-15432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/init-databases.sql:/docker-entrypoint-initdb.d/01-init-databases.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d identitydb"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:4.3.8-management
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:?Set RABBITMQ_USERNAME in .env}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${RABBITMQ_MANAGEMENT_PORT:-15673}:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    restart: unless-stopped
+
+  minio:
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER in .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${MINIO_API_PORT:-19000}:9000"
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:-19001}:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/minio/health/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  identity-api:
+    build:
+      context: .
+      dockerfile: src/Services/Identity.Api/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__IdentityDb: Host=postgres;Port=5432;Database=identitydb;Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      Jwt__Issuer: ${JWT_ISSUER}
+      Jwt__Audience: ${JWT_AUDIENCE}
+      Jwt__SigningKey: ${JWT_SIGNING_KEY}
+      InternalServices__ApiKey: ${INTERNAL_SERVICE_API_KEY}
+      SeedUsers__Enabled: "true"
+      SeedUsers__Admin__Username: ${SEED_ADMIN_USERNAME}
+      SeedUsers__Admin__FullName: ${SEED_ADMIN_FULL_NAME}
+      SeedUsers__Admin__Email: ${SEED_ADMIN_EMAIL}
+      SeedUsers__Admin__Password: ${SEED_ADMIN_PASSWORD}
+      SeedUsers__Creator__Username: ${SEED_CREATOR_USERNAME}
+      SeedUsers__Creator__FullName: ${SEED_CREATOR_FULL_NAME}
+      SeedUsers__Creator__Email: ${SEED_CREATOR_EMAIL}
+      SeedUsers__Creator__Password: ${SEED_CREATOR_PASSWORD}
+      SeedUsers__Approver1__Username: ${SEED_APPROVER1_USERNAME}
+      SeedUsers__Approver1__FullName: ${SEED_APPROVER1_FULL_NAME}
+      SeedUsers__Approver1__Email: ${SEED_APPROVER1_EMAIL}
+      SeedUsers__Approver1__Password: ${SEED_APPROVER1_PASSWORD}
+      SeedUsers__Approver2__Username: ${SEED_APPROVER2_USERNAME}
+      SeedUsers__Approver2__FullName: ${SEED_APPROVER2_FULL_NAME}
+      SeedUsers__Approver2__Email: ${SEED_APPROVER2_EMAIL}
+      SeedUsers__Approver2__Password: ${SEED_APPROVER2_PASSWORD}
+    ports:
+      - "127.0.0.1:${IDENTITY_API_PORT:-5111}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  document-api:
+    build:
+      context: .
+      dockerfile: src/Services/Document.Api/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DocumentDb: Host=postgres;Port=5432;Database=documentdb;Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      Jwt__Issuer: ${JWT_ISSUER}
+      Jwt__Audience: ${JWT_AUDIENCE}
+      Jwt__SigningKey: ${JWT_SIGNING_KEY}
+      InternalServices__ApiKey: ${INTERNAL_SERVICE_API_KEY}
+      Services__IdentityUrl: http://identity-api:8080/
+      Minio__Endpoint: minio:9000
+      Minio__AccessKey: ${MINIO_ROOT_USER}
+      Minio__SecretKey: ${MINIO_ROOT_PASSWORD}
+      Minio__Bucket: ${MINIO_BUCKET:-documents}
+      RabbitMq__Host: rabbitmq
+      RabbitMq__Port: 5672
+      RabbitMq__Username: ${RABBITMQ_USERNAME}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD}
+    ports:
+      - "127.0.0.1:${DOCUMENT_API_PORT:-5112}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      identity-api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  approval-api:
+    build:
+      context: .
+      dockerfile: src/Services/Approval.Api/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__ApprovalDb: Host=postgres;Port=5432;Database=approvaldb;Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      Jwt__Issuer: ${JWT_ISSUER}
+      Jwt__Audience: ${JWT_AUDIENCE}
+      Jwt__SigningKey: ${JWT_SIGNING_KEY}
+      RabbitMq__Host: rabbitmq
+      RabbitMq__Port: 5672
+      RabbitMq__Username: ${RABBITMQ_USERNAME}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD}
+    ports:
+      - "127.0.0.1:${APPROVAL_API_PORT:-5113}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  notification-api:
+    build:
+      context: .
+      dockerfile: src/Services/Notification.Api/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__NotificationDb: Host=postgres;Port=5432;Database=notificationdb;Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      Jwt__Issuer: ${JWT_ISSUER}
+      Jwt__Audience: ${JWT_AUDIENCE}
+      Jwt__SigningKey: ${JWT_SIGNING_KEY}
+      RabbitMq__Host: rabbitmq
+      RabbitMq__Port: 5672
+      RabbitMq__Username: ${RABBITMQ_USERNAME}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD}
+    ports:
+      - "127.0.0.1:${NOTIFICATION_API_PORT:-5114}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  client-web:
+    build:
+      context: .
+      dockerfile: src/Clients/Client.Web/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ApiServices__Identity: http://identity-api:8080/
+      ApiServices__Document: http://document-api:8080/
+      ApiServices__Approval: http://approval-api:8080/
+      ApiServices__Notification: http://notification-api:8080/
+    ports:
+      - "127.0.0.1:${WEB_PORT:-5200}:8080"
+    depends_on:
+      identity-api:
+        condition: service_healthy
+      document-api:
+        condition: service_healthy
+      approval-api:
+        condition: service_healthy
+      notification-api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  rabbitmq-data:
+  minio-data:

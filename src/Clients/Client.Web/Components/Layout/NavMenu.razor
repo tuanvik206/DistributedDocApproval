@@ -1,0 +1,29 @@
+<div class="brand-lockup">
+    <a class="brand-mark" href="/">DF</a>
+    <span><strong>DocFlow</strong><small>Approval workspace</small></span>
+</div>
+<AuthorizeView>
+    <Authorized Context="auth">
+        <nav class="main-nav">
+            <p class="nav-caption">KHÔNG GIAN LÀM VIỆC</p>
+            <NavLink class="nav-link" href="/" Match="NavLinkMatch.All"><span>⌂</span> Tổng quan</NavLink>
+            <AuthorizeView Roles="Creator">
+                <NavLink class="nav-link" href="/documents"><span>▤</span> Tài liệu</NavLink>
+                <NavLink class="nav-link nav-link-sub" href="/documents/new"><span>＋</span> Tạo tài liệu</NavLink>
+            </AuthorizeView>
+            <AuthorizeView Roles="Approver"><NavLink class="nav-link" href="/tasks"><span>✓</span> Nhiệm vụ duyệt</NavLink></AuthorizeView>
+            <NavLink class="nav-link" href="/notifications"><span>◌</span> Thông báo</NavLink>
+            <AuthorizeView Roles="Admin"><NavLink class="nav-link" href="/admin/users"><span>♙</span> Người dùng</NavLink></AuthorizeView>
+        </nav>
+        <div class="sidebar-user">
+            <span class="avatar">@Initial(auth.User.Identity?.Name)</span>
+            <span class="user-copy"><strong>@auth.User.Identity?.Name</strong><small>@(auth.User.FindFirst("user_role")?.Value)</small></span>
+            <form method="post" action="/auth/logout"><AntiforgeryToken /><button class="icon-button" type="submit" title="Đăng xuất" aria-label="Đăng xuất">↗</button></form>
+        </div>
+    </Authorized>
+    <NotAuthorized><a class="button button-primary button-wide" href="/login">Đăng nhập</a></NotAuthorized>
+</AuthorizeView>
+@code {
+    private static string Initial(string? name) =>
+        string.IsNullOrWhiteSpace(name) ? "?" : name.Trim()[0].ToString().ToUpperInvariant();
+}

@@ -1,0 +1,87 @@
+@page "/documents/new"
+@attribute [Authorize(Roles = "Creator")]
+@using Client.Web.Contracts
+@using System.Net.Http.Headers
+@using Microsoft.AspNetCore.Components.Forms
+@inject ApiClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>Tạo tài liệu · DocFlow</PageTitle>
+
+<div class="page-heading">
+    <div><p class="eyebrow">TÀI LIỆU MỚI</p><h1>Tạo bản nháp</h1><p class="muted">Tải lên một file PDF hoặc DOCX tối đa 10 MB.</p></div>
+    <a class="button button-secondary" href="/documents">← Danh sách</a>
+</div>
+
+<section class="form-card">
+    @if (!string.IsNullOrWhiteSpace(message))
+    {
+        <div class="alert @(isError ? "alert-error" : "alert-success")" role="alert">@message</div>
+    }
+    <div class="field"><label for="title">Tiêu đề <span class="required-mark">*</span></label><input id="title" maxlength="200" @bind="title" placeholder="Ví dụ: Đề nghị mua thiết bị" /></div>
+    <div class="field"><label for="description">Mô tả</label><textarea id="description" maxlength="2000" @bind="description" placeholder="Thông tin giúp người duyệt hiểu nội dung đề nghị."></textarea></div>
+    <div class="field"><label for="file">Tệp đính kèm <span class="required-mark">*</span></label><InputFile id="file" OnChange="SelectFile" accept=".pdf,.docx" /><small>@(file is null ? "Chỉ nhận PDF/DOCX. File được lưu riêng tư." : $"Đã chọn: {file.Name} · {FormatSize(file.Size)}")</small></div>
+    <div class="form-actions"><button class="button button-primary" type="button" disabled="@saving" @onclick="SaveAsync">@(saving ? "Đang tải lên…" : "Lưu bản nháp")</button><a class="button button-secondary" href="/documents">Hủy</a></div>
+</section>
+
+@code {
+    private string title = string.Empty;
+    private string description = string.Empty;
+    private IBrowserFile? file;
+    private string? message;
+    private bool isError;
+    private bool saving;
+
+    private void SelectFile(InputFileChangeEventArgs args)
+    {
+        file = args.File;
+        message = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(title) || file is null)
+        {
+            message = "Nhập tiêu đề và chọn file trước khi lưu.";
+            isError = true;
+            return;
+        }
+
+        saving = true;
+        message = null;
+        try
+        {
+            using var form = new MultipartFormDataContent();
+            form.Add(new StringContent(title.Trim()), "title");
+            form.Add(new StringContent(description.Trim()), "description");
+            await using var stream = file.OpenReadStream(10 * 1024 * 1024);
+            using var fileContent = new StreamContent(stream);
+            if (MediaTypeHeaderValue.TryParse(file.ContentType, out var mediaType))
+            {
+                fileContent.Headers.ContentType = mediaType;
+            }
+            form.Add(fileContent, "file", file.Name);
+            using var response = await Api.SendAsync("document", HttpMethod.Post, "api/documents", form);
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new InvalidOperationException(response.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable
+                    ? "Kho lưu trữ đang tạm thời không khả dụng."
+                    : "Không thể lưu bản nháp. Kiểm tra tiêu đề và định dạng file.");
+            }
+
+            var document = await response.Content.ReadFromJsonAsync<DocumentResponse>();
+            if (document is null) throw new InvalidOperationException("Không nhận được thông tin tài liệu vừa tạo.");
+            Navigation.NavigateTo($"/documents/{document.Id}");
+        }
+        catch (Exception exception)
+        {
+            message = exception.Message;
+            isError = true;
+        }
+        finally { saving = false; }
+    }
+
+    private static string FormatSize(long bytes) => bytes < 1024 * 1024
+        ? $"{bytes / 1024d:0.#} KB"
+        : $"{bytes / (1024d * 1024d):0.#} MB";
+}

@@ -1,0 +1,69 @@
+@page "/notifications"
+@attribute [Authorize]
+@using Client.Web.Contracts
+@inject ApiClient Api
+
+<PageTitle>Thông báo · DocFlow</PageTitle>
+
+<div class="page-heading"><div><p class="eyebrow">HỘP THƯ</p><h1>Thông báo</h1><p class="muted">Thông báo chỉ hiển thị cho tài khoản nhận.</p></div><span class="role-badge">@items.Count(item => !item.IsRead) chưa đọc</span></div>
+
+@if (!string.IsNullOrEmpty(message)) { <div class="alert @(isError ? "alert-error" : "alert-success")">@message</div> }
+@if (loading)
+{
+    <div class="loading-card">Đang tải thông báo…</div>
+}
+else if (items.Count == 0)
+{
+    <section class="section-card empty-state"><span class="empty-icon">◌</span><h3>Chưa có thông báo</h3><p>Thông báo giao việc và kết quả duyệt sẽ xuất hiện ở đây.</p></section>
+}
+else
+{
+    <section class="section-card notification-list">
+        @foreach (var item in items)
+        {
+            <article class="notification-row @(item.IsRead ? string.Empty : "unread")">
+                <span class="notification-mark">@(item.Type == "ApprovalTaskAssigned" ? "✓" : item.Type == "DocumentApproved" ? "↑" : "!")</span>
+                <div class="notification-copy"><div><strong>@NotificationTitle(item.Type)</strong><small>@item.CreatedAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</small></div><p>@item.Message</p><a class="text-link" href="/documents/@item.DocumentId">Mở hồ sơ →</a></div>
+                @if (!item.IsRead) { <button class="button button-secondary" disabled="@processing.Contains(item.Id)" @onclick="() => MarkReadAsync(item)">Đánh dấu đã đọc</button> }
+            </article>
+        }
+    </section>
+}
+
+@code {
+    private List<NotificationResponse> items = [];
+    private readonly HashSet<Guid> processing = [];
+    private bool loading = true;
+    private bool isError;
+    private string? message;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { items = await Api.GetAsync<List<NotificationResponse>>("notification", "api/notifications") ?? []; }
+        catch { message = "Không tải được thông báo."; isError = true; }
+        finally { loading = false; }
+    }
+
+    private async Task MarkReadAsync(NotificationResponse item)
+    {
+        processing.Add(item.Id);
+        try
+        {
+            using var response = await Api.SendJsonAsync("notification", HttpMethod.Patch,
+                $"api/notifications/{item.Id}/read", new ReadNotificationRequest(true));
+            if (!response.IsSuccessStatusCode) throw new InvalidOperationException("Không cập nhật được thông báo.");
+            var index = items.FindIndex(entry => entry.Id == item.Id);
+            if (index >= 0) items[index] = item with { IsRead = true, ReadAtUtc = DateTimeOffset.UtcNow };
+        }
+        catch (Exception exception) { message = exception.Message; isError = true; }
+        finally { processing.Remove(item.Id); }
+    }
+
+    private static string NotificationTitle(string type) => type switch
+    {
+        "ApprovalTaskAssigned" => "Bạn có nhiệm vụ phê duyệt mới",
+        "DocumentApproved" => "Tài liệu đã được phê duyệt",
+        "DocumentRejected" => "Tài liệu bị từ chối",
+        _ => "Thông báo hệ thống"
+    };
+}

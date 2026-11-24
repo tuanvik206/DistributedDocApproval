@@ -1,0 +1,90 @@
+@page "/tasks"
+@attribute [Authorize(Roles = "Approver")]
+@using Client.Web.Contracts
+@inject ApiClient Api
+@inject IJSRuntime JavaScript
+
+<PageTitle>Nhiệm vụ duyệt · DocFlow</PageTitle>
+
+<div class="page-heading">
+    <div><p class="eyebrow">INBOX PHÊ DUYỆT</p><h1>Nhiệm vụ của tôi</h1><p class="muted">Chỉ nhiệm vụ đến lượt mới có thể được xử lý.</p></div>
+    <span class="role-badge">@tasks.Count đang chờ</span>
+</div>
+
+@if (!string.IsNullOrEmpty(message)) { <div class="alert @(isError ? "alert-error" : "alert-success")" role="alert">@message</div> }
+@if (loading)
+{
+    <div class="loading-card">Đang tải nhiệm vụ…</div>
+}
+else if (tasks.Count == 0)
+{
+    <section class="section-card empty-state"><span class="empty-icon">✓</span><h3>Không còn nhiệm vụ đến lượt</h3><p>Các hồ sơ mới sẽ xuất hiện ở đây khi bạn được chỉ định.</p></section>
+}
+else
+{
+    @foreach (var task in tasks)
+    {
+        <section class="section-card task-card">
+            <div class="section-heading"><div><p class="eyebrow">BƯỚC @task.StepOrder/@task.TotalSteps</p><h2>@task.Title</h2><p class="muted">Được gửi @task.CreatedAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</p></div><a class="button button-secondary" href="/documents/@task.DocumentId">Mở hồ sơ →</a></div>
+            <div class="field"><label for="comment-@task.TaskId">Nhận xét</label><textarea id="comment-@task.TaskId" maxlength="2000" placeholder="Nhận xét tùy chọn; cần ghi lý do nếu từ chối." @bind="comments[task.TaskId]"></textarea></div>
+            <div class="form-actions"><button class="button button-primary" disabled="@processing.Contains(task.TaskId)" @onclick="() => DecideAsync(task, ApproveDecision)">@(processing.Contains(task.TaskId) ? "Đang xử lý…" : "✓ Phê duyệt")</button><button class="button button-danger" disabled="@processing.Contains(task.TaskId)" @onclick="() => DecideAsync(task, RejectDecision)">Từ chối</button></div>
+        </section>
+    }
+}
+
+@code {
+    private const string ApproveDecision = "Approve";
+    private const string RejectDecision = "Reject";
+    private List<TaskResponse> tasks = [];
+    private readonly Dictionary<Guid, string> comments = [];
+    private readonly HashSet<Guid> processing = [];
+    private bool loading = true;
+    private bool isError;
+    private string? message;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            tasks = await Api.GetAsync<List<TaskResponse>>("approval", "api/approvals/my-tasks") ?? [];
+            foreach (var task in tasks) comments.TryAdd(task.TaskId, string.Empty);
+        }
+        catch { message = "Không tải được inbox. Hãy thử lại."; isError = true; }
+        finally { loading = false; }
+    }
+
+    private async Task DecideAsync(TaskResponse task, string decision)
+    {
+        if (decision == "Reject" && string.IsNullOrWhiteSpace(comments.GetValueOrDefault(task.TaskId)))
+        {
+            message = "Bạn cần ghi lý do khi từ chối.";
+            isError = true;
+            return;
+        }
+        var confirmation = decision == "Approve" ? "Phê duyệt tài liệu này?" : "Từ chối tài liệu và kết thúc quy trình?";
+        if (!await JavaScript.InvokeAsync<bool>("confirm", confirmation)) return;
+
+        processing.Add(task.TaskId);
+        message = null;
+        try
+        {
+            using var response = await Api.SendJsonAsync("approval", HttpMethod.Post,
+                $"api/approvals/tasks/{task.TaskId}/decisions",
+                new DecisionRequest(decision, comments.GetValueOrDefault(task.TaskId)));
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new InvalidOperationException(response.StatusCode == System.Net.HttpStatusCode.Conflict
+                    ? "Nhiệm vụ đã được xử lý hoặc không còn đến lượt bạn."
+                    : "Không lưu được quyết định.");
+            }
+            message = decision == "Approve" ? "Đã ghi nhận phê duyệt." : "Đã ghi nhận từ chối.";
+            isError = false;
+            loading = true;
+            await LoadAsync();
+        }
+        catch (Exception exception) { message = exception.Message; isError = true; }
+        finally { processing.Remove(task.TaskId); }
+    }
+}
