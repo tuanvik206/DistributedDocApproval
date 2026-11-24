@@ -10,6 +10,7 @@ Các kết quả dưới đây được ghi từ môi trường local với Dock
 | `dotnet test DistributedDocApproval.slnx --no-restore -v:q` | 15 test đạt sau thay đổi consumer recovery và bổ sung Document API integration: 8 unit + 7 integration, 0 failed, 0 skipped. |
 | Docker Compose build | Năm image ứng dụng build thành công; các base image .NET 10. |
 | `docker compose config -q` | Compose hợp lệ. |
+| Clone sạch từ GitHub `main` | `dotnet build`, 15 tests, Compose config, build/up tám service, health checks và `/login` đều đạt; stack và volumes kiểm chứng đã được dọn. |
 
 Integration tests dùng PostgreSQL Testcontainers. Coverage gồm đăng nhập/identity, upload và tải lại đúng bytes, Creator khác không thể đọc/download/update file, executable giả dạng PDF bị từ chối, quyết định tuần tự, sai thứ tự, thiếu lý do Reject, trùng quyết định, Admin không thể duyệt, hai quyết định cùng lúc chỉ một request ghi nhận, và notification Inbox idempotent.
 
@@ -34,5 +35,6 @@ Integration tests dùng PostgreSQL Testcontainers. Coverage gồm đăng nhập/
 | DT02 RabbitMQ outage | Submit được lưu qua Outbox; workflow và kết quả tiếp tục sau khi broker và consumer kết nối lại. |
 | DT03 idempotency | Integration test Inbox xử lý event lặp mà không nhân bản notification. |
 | DT06 health | Readiness của các API và dependency local đạt sau Compose startup. |
+| DT08 clean clone | Clone `main` từ GitHub, build/test, chạy stack bằng cổng cô lập, xác nhận health và dọn tài nguyên test. |
 
 Ảnh chụp trang đăng nhập từ giao diện local được lưu tại [01-login-page.png](../06-screenshots/01-login-page.png). Snapshot trực tiếp của Compose, health endpoints và RabbitMQ queues nằm trong [runtime-status.txt](runtime-status.txt). Các ảnh màn hình Compose, lịch sử workflow và RabbitMQ Management chưa được chụp; log kết quả ở trên chỉ ghi những gì đã chạy và không thay thế các ảnh này trong báo cáo học phần.

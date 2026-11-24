@@ -82,7 +82,7 @@ Hướng dẫn dựng hệ thống, cổng, tài khoản demo và vận hành n�
 
 ## Chương 6 — Kiểm thử và đánh giá
 
-`dotnet build` đạt 0 warning/0 error. `dotnet test` đạt 15 test: 8 unit tests và 7 integration tests dùng PostgreSQL Testcontainers. Test bao phủ identity, xác thực PDF, upload/download đúng bytes, quyền sở hữu file, workflow tuần tự, sai thứ tự, quyết định trùng/đồng thời, quyền Admin và Inbox notification.
+`dotnet build` đạt 0 warning/0 error. `dotnet test` đạt 15 test: 8 unit tests và 7 integration tests dùng PostgreSQL Testcontainers. Test bao phủ identity, xác thực PDF, upload/download đúng bytes, quyền sở hữu file, workflow tuần tự, sai thứ tự, quyết định trùng/đồng thời, quyền Admin và Inbox notification. Một clone sạch từ GitHub `main` cũng restore/build/test và chạy đủ tám service bằng Compose.
 
 Smoke test Compose xác nhận luồng Approved hai cấp, Reject có lý do, thông báo và cookie đăng nhập HttpOnly. Khi Notification API dừng, quyết định vẫn hoàn tất và notification được giao sau khi service hoạt động. Khi RabbitMQ dừng, Submit còn trong Outbox; sau khi bật broker, worker phát lại. Kịch bản này cũng phát hiện rồi kiểm tra bản vá consumer tự đăng ký lại sau broker restart.
 

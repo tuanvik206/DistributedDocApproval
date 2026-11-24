@@ -15,12 +15,14 @@
 - `dotnet build DistributedDocApproval.slnx --no-restore -v:q`: thành công, 0 warning, 0 error.
 - `dotnet test DistributedDocApproval.slnx --no-restore -v:q`: 15 passed, 0 failed, 0 skipped.
 - `docker compose ... build`: năm image ứng dụng được build; tám service đều healthy.
+- Clone sạch từ GitHub `main`: build thành công, 15/15 tests, Compose config hợp lệ, tám container healthy, bốn API readiness và trang login đạt; stack kiểm chứng riêng đã được dọn.
 - Smoke test đã chạy luồng Approved hai cấp, Rejected, cookie login HttpOnly, outage Notification API và RabbitMQ. Kịch bản chi tiết ở [TEST_RESULTS.md](TEST_RESULTS.md).
 - Ảnh giao diện hiện có: [01-login-page.png](../06-screenshots/01-login-page.png).
 
 ## GitHub
 
 - Commit `2353a6bf869403fb538c888d378b9fa7908c3640` (`feat: complete distributed document approval MVP`) được push lên `refs/heads/main`.
+- Commit `fe287f9` ghi nhật ký mốc cũng đã push; remote `main` được xác minh trỏ đúng commit này trước lượt kiểm tra clone sạch.
 - Tác giả: `Tuan <tuanvik206@gmail.com>`. SHA trên GitHub khớp với `main` local.
 - Không tạo commit hoặc ngày lịch sử giả cho các tuần trước; mốc tiếp theo cần ghi theo ngày thực hiện.
 
