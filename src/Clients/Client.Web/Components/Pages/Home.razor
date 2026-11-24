@@ -12,7 +12,10 @@
         <h1>Chào @displayName</h1>
         <p class="muted">Theo dõi trạng thái hồ sơ và các việc cần xử lý.</p>
     </div>
-    <span class="role-badge">@role</span>
+    <div class="dashboard-badges">
+        <span class="role-badge">@role</span>
+        <a class="role-badge" href="/notifications">@(unreadNotifications?.ToString() ?? "—") chưa đọc</a>
+    </div>
 </div>
 
 @if (!string.IsNullOrEmpty(error))
@@ -88,6 +91,7 @@ else
     private string role = string.Empty;
     private string? error;
     private bool loading = true;
+    private int? unreadNotifications;
     private List<DocumentResponse> documents = [];
     private List<TaskResponse> tasks = [];
 
@@ -114,6 +118,16 @@ else
         finally
         {
             loading = false;
+        }
+
+        try
+        {
+            var notifications = await Api.GetAsync<List<NotificationResponse>>("notification", "api/notifications") ?? [];
+            unreadNotifications = notifications.Count(notification => !notification.IsRead);
+        }
+        catch
+        {
+            unreadNotifications = null;
         }
     }
 }

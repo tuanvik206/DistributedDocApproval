@@ -17,6 +17,8 @@
         <select class="search-input" aria-label="Lọc trạng thái" @bind="statusFilter">
             <option value="">Tất cả trạng thái</option><option>Draft</option><option>Pending</option><option>Approved</option><option>Rejected</option>
         </select>
+        <input class="search-input" type="date" aria-label="Lọc từ ngày tạo" @bind="createdFrom" />
+        <input class="search-input" type="date" aria-label="Lọc đến ngày tạo" @bind="createdTo" />
     </div>
     @if (loading)
     {
@@ -49,11 +51,15 @@
     private string? error;
     private string query = string.Empty;
     private string statusFilter = string.Empty;
+    private DateTime? createdFrom;
+    private DateTime? createdTo;
     private List<DocumentResponse> documents = [];
 
     private IEnumerable<DocumentResponse> FilteredDocuments => documents
         .Where(document => string.IsNullOrWhiteSpace(query) || document.Title.Contains(query, StringComparison.OrdinalIgnoreCase))
-        .Where(document => string.IsNullOrWhiteSpace(statusFilter) || document.Status == statusFilter);
+        .Where(document => string.IsNullOrWhiteSpace(statusFilter) || document.Status == statusFilter)
+        .Where(document => createdFrom is null || document.CreatedAtUtc.ToLocalTime().Date >= createdFrom.Value.Date)
+        .Where(document => createdTo is null || document.CreatedAtUtc.ToLocalTime().Date <= createdTo.Value.Date);
 
     protected override async Task OnInitializedAsync()
     {
