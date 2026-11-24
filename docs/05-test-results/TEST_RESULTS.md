@@ -23,6 +23,9 @@ Integration tests dùng PostgreSQL Testcontainers. Coverage gồm đăng nhập/
 - Tạm dừng Notification API, submit và hoàn tất duyệt: nghiệp vụ vẫn thành công. Sau khi bật API, queue tạo đúng một notification assignment cho approver và một kết quả cho Creator.
 - Tạm dừng RabbitMQ rồi submit: Document API trả `Pending`, Approval workflow chưa được tạo. Sau khi bật broker, Outbox phát lại và workflow được tạo.
 - Kịch bản broker restart đầu tiên cho thấy Document consumer chưa gắn lại queue; đã sửa worker để lắng nghe `ChannelShutdownAsync`, đóng channel cũ và tạo consumer mới. Sau rebuild, khởi động lại RabbitMQ trong khi API vẫn chạy, nhận task, Approve và xác nhận Document cập nhật `Approved` mà không restart API.
+- Ngày 24/11/2026, chạy thêm hai hồ sơ qua UI Blazor local: `Two-step approval demo 2026-11-24` được Approver 1 rồi Approver 2 duyệt, ghi đủ hai quyết định và notification `DocumentApproved`; `Two-step rejection demo 2026-11-24` bị từ chối ở bước 1 với lý do, bước 2 `Skipped`, Creator nhận notification `DocumentRejected`.
+- Dừng Notification API trước khi submit `Notification outage recovery demo 2026-11-24`; hai Approver vẫn hoàn tất workflow Approved. Khi service dừng, RabbitMQ giữ ba event với consumer=0; sau restart service healthy, log ghi nhận hai `ApprovalTaskAssigned.v1` và một `DocumentApproved.v1`, queue về 0 và Creator nhận notification.
+- Ảnh dashboard, inbox hai Approver, workflow, RabbitMQ trước/sau outage, Compose status và event logs được liệt kê tại [docs/06-screenshots](../06-screenshots/README.md). Log đã lọc theo DocumentId/correlation ID được lưu ở [notification-recovery.log](notification-recovery.log). Đây là demo runtime bổ sung, không tính vào số lượng unit/integration tests.
 
 ## Ma trận nghiệm thu đã kiểm tra
 
@@ -37,4 +40,4 @@ Integration tests dùng PostgreSQL Testcontainers. Coverage gồm đăng nhập/
 | DT06 health | Readiness của các API và dependency local đạt sau Compose startup. |
 | DT08 clean clone | Clone `main` từ GitHub, build/test, chạy stack bằng cổng cô lập, xác nhận health và dọn tài nguyên test. |
 
-Ảnh chụp trang đăng nhập từ giao diện local được lưu tại [01-login-page.png](../06-screenshots/01-login-page.png). Snapshot trực tiếp của Compose, health endpoints và RabbitMQ queues nằm trong [runtime-status.txt](runtime-status.txt). Các ảnh màn hình Compose, lịch sử workflow và RabbitMQ Management chưa được chụp; log kết quả ở trên chỉ ghi những gì đã chạy và không thay thế các ảnh này trong báo cáo học phần.
+Ảnh đăng nhập, OpenAPI, dashboard, inbox Approver, timeline, notification, RabbitMQ queues trước/sau outage, Compose status và log event được lập chỉ mục trong [docs/06-screenshots](../06-screenshots/README.md). Ảnh Compose là output CLI thật được render để dễ đọc, không phải giao diện Docker Desktop. Snapshot runtime ở [runtime-status.txt](runtime-status.txt); log event ở [notification-recovery.log](notification-recovery.log).

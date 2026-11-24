@@ -1,21 +1,26 @@
-Compose containers:
-approval-api running healthy
-client-web running healthy
-document-api running healthy
-identity-api running healthy
-minio running healthy
-notification-api running healthy
-postgres running healthy
-rabbitmq running healthy
-API readiness:
-http://localhost:5111/health/ready => Ready
-http://localhost:5112/health/ready => Ready
-http://localhost:5113/health/ready => Ready
-http://localhost:5114/health/ready => Ready
-RabbitMQ queues:
+Local runtime snapshot: 2026-11-24 14:27:28 +07:00
+Compose project: dda-verify (docker-compose.yml); status checked with --env-file .env.example.
+Client.Web was rebuilt after removing conflicting template CSS; build succeeded and all eight containers are healthy.
+
+Compose services (healthy): approval-api, client-web, document-api, identity-api, minio, notification-api, postgres, rabbitmq.
+
+API readiness: HTTP 200, status Ready.
+http://localhost:5111/health/ready
+http://localhost:5112/health/ready
+http://localhost:5113/health/ready
+http://localhost:5114/health/ready
+
+RabbitMQ after recovery: all six queues running; message count=0; regular queues consumers=1; dead-letter consumers=0.
 approval.document-submitted messages=0 consumers=1 state=running
 approval.document-submitted.dead messages=0 consumers=0 state=running
 document.approval-results messages=0 consumers=1 state=running
 document.approval-results.dead messages=0 consumers=0 state=running
 notification.events messages=0 consumers=1 state=running
 notification.events.dead messages=0 consumers=0 state=running
+
+Blazor UI demo: Creator dashboard showed 8 documents and 0 pending.
+Two-step approval demo 2026-11-24: Approved; 2 steps, 2 decisions; Creator notification visible.
+Two-step rejection demo 2026-11-24: Rejected; step 1 has a reason; step 2 is Skipped; Creator notification visible.
+Notification outage recovery demo 2026-11-24: Notification API stopped before submit; two-step workflow completed Approved; RabbitMQ held 3 events with consumers=0.
+After restarting Notification API: health=healthy, 3 events consumed (2 ApprovalTaskAssigned.v1, 1 DocumentApproved.v1), notification.events returned to 0, Creator notification visible.
+Recovery event excerpt: notification-recovery.log; screenshots: ../06-screenshots/README.md.

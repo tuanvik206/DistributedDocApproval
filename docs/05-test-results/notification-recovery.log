@@ -1,0 +1,10 @@
+# Notification API recovery log
+Captured 2026-11-24 after restarting dda-verify-notification-api-1.
+Source: docker logs filtered to the outage recovery document and matching correlation IDs.
+
+      Stored notification feaf140c-696a-43ca-b9d8-f587b34986a0 for user 58c4b0ba-2313-414f-8ec0-e8b825ab7926, document f4e22e7e-133f-4afc-8526-214d3107c3f3; correlation 0HNQ9U6VBRC9G:00000003
+      Consumed event f8154fc1-f26a-4309-9720-8e5dadb7091d (ApprovalTaskAssigned.v1) from notification.events; correlation 0HNQ9U6VBRC9G:00000003
+      Stored notification d298e600-864a-4417-b88c-793d56ba7920 for user 6bfd1f2c-aac2-469e-8a4f-6accdac29c9c, document f4e22e7e-133f-4afc-8526-214d3107c3f3; correlation 0HNQ9U6V73P7P:00000001
+      Consumed event 57556446-1761-4513-ba60-242fbeed2c6e (ApprovalTaskAssigned.v1) from notification.events; correlation 0HNQ9U6V73P7P:00000001
+      Stored notification ef0b3f4b-8da6-4d14-b0fe-bf3834cf882d for user 87f7fd59-bbaa-43d8-875e-b108e3cee5bc, document f4e22e7e-133f-4afc-8526-214d3107c3f3; correlation 0HNQ9U6V73P7P:00000004
+      Consumed event 56c41239-aaf5-4974-8338-8a35ff8f5a70 (DocumentApproved.v1) from notification.events; correlation 0HNQ9U6V73P7P:00000004
