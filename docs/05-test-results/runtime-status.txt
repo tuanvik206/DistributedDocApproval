@@ -24,3 +24,5 @@ Two-step rejection demo 2026-11-24: Rejected; step 1 has a reason; step 2 is Ski
 Notification outage recovery demo 2026-11-24: Notification API stopped before submit; two-step workflow completed Approved; RabbitMQ held 3 events with consumers=0.
 After restarting Notification API: health=healthy, 3 events consumed (2 ApprovalTaskAssigned.v1, 1 DocumentApproved.v1), notification.events returned to 0, Creator notification visible.
 Recovery event excerpt: notification-recovery.log; screenshots: ../06-screenshots/README.md.
+
+UI follow-up on 2026-11-24: document list supports created-date range; dashboard shows unread notification count for Creator, Approver, and Admin. Full solution build succeeded (0 warnings/errors), 15/15 tests passed, Client.Web Compose image rebuilt, container healthy, and /login returned HTTP 200.

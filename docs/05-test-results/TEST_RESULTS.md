@@ -6,9 +6,9 @@ Các kết quả dưới đây được ghi từ môi trường local với Dock
 
 | Lệnh | Kết quả |
 |---|---|
-| `dotnet build DistributedDocApproval.slnx --no-restore -v:q` | Build thành công, 0 warning, 0 error sau thay đổi consumer recovery. |
-| `dotnet test DistributedDocApproval.slnx --no-restore -v:q` | 15 test đạt sau thay đổi consumer recovery và bổ sung Document API integration: 8 unit + 7 integration, 0 failed, 0 skipped. |
-| Docker Compose build | Năm image ứng dụng build thành công; các base image .NET 10. |
+| `dotnet build DistributedDocApproval.slnx --no-restore -v:q` | Build thành công, 0 warning, 0 error; chạy lại sau cập nhật bộ lọc ngày và dashboard. |
+| `dotnet test DistributedDocApproval.slnx --no-restore -v:q` | 15 test đạt: 8 unit + 7 integration, 0 failed, 0 skipped; chạy lại sau cập nhật UI. |
+| Docker Compose build | Năm image ứng dụng build thành công; sau cập nhật UI, image Client.Web được build lại và container healthy. |
 | `docker compose config -q` | Compose hợp lệ. |
 | Clone sạch từ GitHub `main` | `dotnet build`, 15 tests, Compose config, build/up tám service, health checks và `/login` đều đạt; stack và volumes kiểm chứng đã được dọn. |
 
