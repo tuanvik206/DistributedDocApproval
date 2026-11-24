@@ -18,9 +18,14 @@
 - Smoke test đã chạy luồng Approved hai cấp, Rejected, cookie login HttpOnly, outage Notification API và RabbitMQ. Kịch bản chi tiết ở [TEST_RESULTS.md](TEST_RESULTS.md).
 - Ảnh giao diện hiện có: [01-login-page.png](../06-screenshots/01-login-page.png).
 
+## GitHub
+
+- Commit `2353a6bf869403fb538c888d378b9fa7908c3640` (`feat: complete distributed document approval MVP`) được push lên `refs/heads/main`.
+- Tác giả: `Tuan <tuanvik206@gmail.com>`. SHA trên GitHub khớp với `main` local.
+- Không tạo commit hoặc ngày lịch sử giả cho các tuần trước; mốc tiếp theo cần ghi theo ngày thực hiện.
+
 ## Còn thiếu
 
-- Ảnh minh chứng Docker containers, màn hình workflow/audit và RabbitMQ Management.
-- Commit đầu tiên và push lên `https://github.com/tuanvik206/DistributedDocApproval.git`. Branch local hiện chưa có commit; tên tác giả `Tuan` đã được xác nhận, còn thiếu email tác giả mà người dùng nói sẽ gửi riêng. Các file đã stage, `.env` không nằm trong stage. Không tạo commit giả với email hoặc ngày không được cung cấp.
+- Ảnh minh chứng Docker containers, màn hình workflow/audit và RabbitMQ Management. Snapshot text runtime được giữ trong [runtime-status.txt](runtime-status.txt).
 
 Khi mỗi mốc tiếp theo hoàn tất, thêm một mục mới có ngày thực hiện, thay đổi, lệnh kiểm tra, ảnh và commit SHA thực tế.
